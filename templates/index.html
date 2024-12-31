@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trending Tweets</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #007BFF;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px 0;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        button:disabled {
+            background-color: #cccccc;
+            cursor: not-allowed;
+        }
+        #status-message {
+            margin: 15px 0;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .trend-item {
+            background-color: #f8f9fa;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            border: 1px solid #dee2e6;
+        }
+        .trend-number {
+            font-weight: bold;
+            color: #007BFF;
+        }
+        .timestamp {
+            color: #6c757d;
+            font-size: 0.9em;
+        }
+        #load-more-container {
+            text-align: center;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Trending Tweets</h1>
+        <button id="fetch-trends">Fetch Latest Trends</button>
+    </div>
+    
+    <div id="status-message" style="display: none;"></div>
+    <div id="trends-container"></div>
+    <div id="load-more-container" style="display: none;">
+        <button id="load-more">Load More</button>
+    </div>
+
+    <script>
+        let currentPage = 1;
+
+        function showStatus(message, isError = false) {
+            const statusDiv = $("#status-message");
+            statusDiv.text(message)
+                    .removeClass("success error")
+                    .addClass(isError ? "error" : "success")
+                    .show();
+        }
+
+        function loadTrends(page = 1, append = false) {
+            $.get(`/get_trends?page=${page}`, function(response) {
+                if (!append) {
+                    $("#trends-container").empty();
+                }
+
+                response.trends.forEach(trend => {
+                    $("#trends-container").append(`
+                        <div class="trend-item">
+                            <span class="trend-number">Trend #${trend.number}</span>
+                            <div class="timestamp">Posted: ${new Date(trend.timestamp).toLocaleString()}</div>
+                            <div class="content">${trend.content}</div>
+                        </div>
+                    `);
+                });
+
+                // Show/hide load more button
+                $("#load-more-container").toggle(response.hasMore);
+            });
+        }
+
+        // Fetch trends button click handler
+        $("#fetch-trends").click(function() {
+            const button = $(this);
+            button.prop('disabled', true);
+            showStatus("Fetching new trends...");
+
+            $.post("/run_script", function(response) {
+                if (response.status === "success") {
+                    showStatus(response.message);
+                    currentPage = 1;
+                    loadTrends(1, false);
+                } else {
+                    showStatus("Failed to fetch trends.", true);
+                }
+                button.prop('disabled', false);
+            }).fail(function() {
+                showStatus("Error connecting to server.", true);
+                button.prop('disabled', false);
+            });
+        });
+
+        // Load more button click handler
+        $("#load-more").click(function() {
+            currentPage++;
+            loadTrends(currentPage, true);
+        });
+
+        // Initial load
+        loadTrends(1, false);
+    </script>
+</body>
+</html>
